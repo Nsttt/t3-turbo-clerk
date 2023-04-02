@@ -11,7 +11,6 @@ const config = {
   /** We already do linting and typechecking as separate tasks in CI */
   eslint: { ignoreDuringBuilds: !!process.env.CI },
   typescript: { ignoreBuildErrors: !!process.env.CI },
-  output: process.env.DOCKER ? "standalone" : undefined,
 };
 
 export default config;
