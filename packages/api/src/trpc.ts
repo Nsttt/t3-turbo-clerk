@@ -7,57 +7,10 @@
  * The pieces you will need to use are documented accordingly near the end
  */
 import { TRPCError, initTRPC } from "@trpc/server";
-import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { getServerSession, type Session } from "@acme/auth";
-import { prisma } from "@acme/db";
-
-/**
- * 1. CONTEXT
- *
- * This section defines the "contexts" that are available in the backend API
- *
- * These allow you to access things like the database, the session, etc, when
- * processing a request
- *
- */
-type CreateContextOptions = {
-  session: Session | null;
-};
-
-/**
- * This helper generates the "internals" for a tRPC context. If you need to use
- * it, you can export it from here
- *
- * Examples of things you may need it for:
- * - testing, so we dont have to mock Next.js' req/res
- * - trpc's `createSSGHelpers` where we don't have req/res
- * @see https://create.t3.gg/en/usage/trpc#-servertrpccontextts
- */
-const createInnerTRPCContext = (opts: CreateContextOptions) => {
-  return {
-    session: opts.session,
-    prisma,
-  };
-};
-
-/**
- * This is the actual context you'll use in your router. It will be used to
- * process every request that goes through your tRPC endpoint
- * @link https://trpc.io/docs/context
- */
-export const createTRPCContext = async (opts: CreateNextContextOptions) => {
-  const { req, res } = opts;
-
-  // Get the session from the server using the unstable_getServerSession wrapper function
-  const session = await getServerSession({ req, res });
-
-  return createInnerTRPCContext({
-    session,
-  });
-};
+import { type Context } from "./context";
 
 /**
  * 2. INITIALIZATION
@@ -65,7 +18,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
  * This is where the trpc api is initialized, connecting the context and
  * transformer
  */
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
@@ -106,13 +59,15 @@ export const publicProcedure = t.procedure;
  * procedure
  */
 const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session?.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
+  if (!ctx.auth?.userId) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Not authenticated",
+    });
   }
   return next({
     ctx: {
-      // infers the `session` as non-nullable
-      session: { ...ctx.session, user: ctx.session.user },
+      auth: ctx.auth,
     },
   });
 });

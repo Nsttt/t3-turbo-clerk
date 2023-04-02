@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { NextPage } from "next";
 import Head from "next/head";
 import Link from "next/link";
-import { signIn, signOut } from "next-auth/react";
+import { UserButton, useAuth } from "@clerk/nextjs";
 
 import { api, type RouterOutputs } from "~/utils/api";
 
@@ -55,7 +55,6 @@ const CreatePostForm: React.FC = () => {
           {error.data.zodError.fieldErrors.title}
         </span>
       )}
-      <Link href="/yoo">Hello</Link>
       <input
         className="mb-2 rounded bg-white/10 p-2 text-white"
         value={content}
@@ -103,10 +102,9 @@ const Home: NextPage = () => {
           </h1>
           <AuthShowcase />
 
-          <CreatePostForm />
-
           {postQuery.data ? (
             <div className="w-full max-w-2xl">
+              <CreatePostForm />
               {postQuery.data?.length === 0 ? (
                 <span>There are no posts!</span>
               ) : (
@@ -137,27 +135,44 @@ const Home: NextPage = () => {
 export default Home;
 
 const AuthShowcase: React.FC = () => {
-  const { data: session } = api.auth.getSession.useQuery();
-
+  const { isSignedIn } = useAuth();
   const { data: secretMessage } = api.auth.getSecretMessage.useQuery(
     undefined, // no input
-    { enabled: !!session?.user },
+    { enabled: !!isSignedIn },
   );
 
   return (
     <div className="flex flex-col items-center justify-center gap-4">
-      {session?.user && (
+      {isSignedIn && (
+        <>
+          <p className="text-center text-2xl text-white">
+            {secretMessage && (
+              <span>
+                {" "}
+                {secretMessage} click the user button!
+                <br />
+              </span>
+            )}
+          </p>
+          <div className="flex items-center justify-center">
+            <UserButton
+              appearance={{
+                elements: {
+                  userButtonAvatarBox: {
+                    width: "3rem",
+                    height: "3rem",
+                  },
+                },
+              }}
+            />
+          </div>
+        </>
+      )}
+      {!isSignedIn && (
         <p className="text-center text-2xl text-white">
-          {session && <span>Logged in as {session?.user?.name}</span>}
-          {secretMessage && <span> - {secretMessage}</span>}
+          <Link href="/sign-in">Sign In</Link>
         </p>
       )}
-      <button
-        className="rounded-full bg-white/10 px-10 py-3 font-semibold text-white no-underline transition hover:bg-white/20"
-        onClick={session ? () => void signOut() : () => void signIn()}
-      >
-        {session ? "Sign out" : "Sign in"}
-      </button>
     </div>
   );
 };
